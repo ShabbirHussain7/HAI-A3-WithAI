@@ -192,7 +192,7 @@
               <img class="task-image" src="${escapeHtml(img.url)}" alt="X-ray ${idx+1}" loading="lazy" />
 
               <table class="probs" aria-label="AI predicted probabilities">
-                <thead><tr><th>Model prob.</th><th>Value</th></tr></thead>
+                <thead><tr><th>Class.</th><th>Probability</th></tr></thead>
                 <tbody>
                   <tr><td>Normal</td><td>${fmtPct(img.prob_NORMAL)}</td></tr>
                   <tr><td>Pneumonia</td><td>${fmtPct(img.prob_PNEUMONIA)}</td></tr>
