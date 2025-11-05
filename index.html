@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chest X-ray Screening Task (3 Images)</title>
+
+  <!-- CSV parser -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root { --card-bg:#fff; --card-shadow:0 2px 8px rgba(0,0,0,0.08); --muted:#6b7280; --accent:#2563eb; --accent-hover:#1d4ed8; --border:#e5e7eb; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:#f9fafb; color:#0f172a; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.45; }
+    .container { max-width:980px; margin:24px auto; padding:0 16px; }
+    .card { background:var(--card-bg); box-shadow:var(--card-shadow); border-radius:12px; }
+    .card-section { padding:20px 24px; border-bottom:1px solid var(--border); }
+    .title { margin:0 0 4px; font-weight:700; font-size:20px; }
+    .subtitle { margin:0; color:var(--muted); font-size:14px; }
+    .illustrations h2 { margin:0 0 12px; font-size:18px; }
+    .ref-image { display:block; max-width:100%; height:auto; border-radius:8px; }
+    .instructions h2 { margin:0 0 8px; font-size:16px; }
+    .instructions p, .instructions ul, .instructions ol { margin:8px 0; }
+    .form-wrap { display:grid; grid-auto-rows:max-content; gap:20px; }
+    .task-block { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .task-block h3 { margin:0 0 8px; font-size:16px; font-weight:600; color:var(--accent); }
+    .muted { color:var(--muted); font-size:13px; margin:-2px 0 10px 0; }
+    .task-image { display:block; width:100%; height:auto; border-radius:8px; margin:0 auto 12px; }
+    .field-group { margin:12px 0 18px; }
+    .field-group label strong { display:inline-block; margin-bottom:6px; }
+    select, textarea, input[type="radio"], input[type="text"] { font-size:14px; }
+    select, textarea, input[type="text"] { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; outline:none; background:#fff; }
+    select:focus, textarea:focus, input[type="text"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,0.12); }
+    fieldset { border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+    legend { font-weight:700; padding:0 6px; }
+    .radio-row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+    .submit-row { padding-top:8px; display:flex; gap:12px; justify-content:flex-end; align-items:center; }
+    .pretty-submit { background:var(--accent); color:#fff; font-weight:700; font-size:16px; border-radius:10px; padding:12px 28px; border:none; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.1); transition: background .2s, transform .1s; }
+    .pretty-submit:hover { background:var(--accent-hover); transform: translateY(-1px); }
+    .pretty-submit:active { transform: translateY(0); }
+    .status { font-size:14px; color:var(--muted); }
+    .ok { color:#15803d; }
+    .err { color:#b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+
+      <div class="card-section">
+        <h1 class="title">Chest X-ray Screening: Identify Lung Conditions</h1>
+        <p class="subtitle">Review 3 images below. Label each, choose confidence, and (optionally) justify.</p>
+      </div>
+
+      <div class="card-section illustrations">
+        <h2>Example Reference</h2>
+        <img class="ref-image" src="https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3/refs/heads/main/reference.png"
+             alt="Example radiographs: Normal, Pneumonia, TB" loading="lazy"/>
+      </div>
+
+      <div class="card-section instructions">
+        <h2>Instructions</h2>
+        <p>You will see three chest X-ray images below. For each, select:</p>
+        <ol>
+          <li>The diagnosis (Normal, Pneumonia, Tuberculosis).</li>
+          <li>Your confidence (1 = low, 3 = high).</li>
+          <li>Optional: a brief justification.</li>
+        </ol>
+        <p>Please rely only on following visual cues:</p>
+        <ul>
+          <li><strong>Normal</strong> – The lungs look clear with no signs of infection or damage. The black areas (air spaces) look even on both sides, and there are no cloudy or white patches.</li>
+          <li><strong>Pneumonia</strong> – Look for gray or white “foggy” patches in one or both lungs. They might cover a small area (a single section) or spread across the lung.</li>
+          <li><strong>Tuberculosis (TB)</strong> – Hollow-looking areas near the upper parts of the lungs. The rest of the lung may look more scarred or irregular than in pneumonia.</li>
+        </ul>
+      </div>
+
+      <div class="card-section">
+        <form id="task-form">
+          <div class="form-wrap" id="taskContainer">
+            <div class="task-block">
+              <h3>Participant</h3>
+              <div class="field-group">
+                <label><strong>Uniquename (required)</strong></label>
+                <input type="text" name="Uniquename" id="Uniquename" placeholder="e.g., alice_42 or MTURK_ABC123" required />
+              </div>
+            </div>
+          </div>
+
+          <!-- order + per-position metadata -->
+          <input type="hidden" name="randomized_order_json" id="randomized_order_json" />
+          <input type="hidden" name="shown_image_id_1" id="shown_image_id_1" />
+          <input type="hidden" name="shown_image_url_1" id="shown_image_url_1" />
+          <input type="hidden" name="shown_true_label_1" id="shown_true_label_1" />
+          <input type="hidden" name="shown_predicted_label_1" id="shown_predicted_label_1" />
+          <input type="hidden" name="shown_prob_NORMAL_1" id="shown_prob_NORMAL_1" />
+          <input type="hidden" name="shown_prob_PNEUMONIA_1" id="shown_prob_PNEUMONIA_1" />
+          <input type="hidden" name="shown_prob_TUBERCULOSIS_1" id="shown_prob_TUBERCULOSIS_1" />
+
+          <input type="hidden" name="shown_image_id_2" id="shown_image_id_2" />
+          <input type="hidden" name="shown_image_url_2" id="shown_image_url_2" />
+          <input type="hidden" name="shown_true_label_2" id="shown_true_label_2" />
+          <input type="hidden" name="shown_predicted_label_2" id="shown_predicted_label_2" />
+          <input type="hidden" name="shown_prob_NORMAL_2" id="shown_prob_NORMAL_2" />
+          <input type="hidden" name="shown_prob_PNEUMONIA_2" id="shown_prob_PNEUMONIA_2" />
+          <input type="hidden" name="shown_prob_TUBERCULOSIS_2" id="shown_prob_TUBERCULOSIS_2" />
+
+          <input type="hidden" name="shown_image_id_3" id="shown_image_id_3" />
+          <input type="hidden" name="shown_image_url_3" id="shown_image_url_3" />
+          <input type="hidden" name="shown_true_label_3" id="shown_true_label_3" />
+          <input type="hidden" name="shown_predicted_label_3" id="shown_predicted_label_3" />
+          <input type="hidden" name="shown_prob_NORMAL_3" id="shown_prob_NORMAL_3" />
+          <input type="hidden" name="shown_prob_PNEUMONIA_3" id="shown_prob_PNEUMONIA_3" />
+          <input type="hidden" name="shown_prob_TUBERCULOSIS_3" id="shown_prob_TUBERCULOSIS_3" />
+
+          <div class="submit-row">
+            <button id="submitButton" type="submit" class="pretty-submit">Submit All</button>
+            <span id="status" class="status"></span>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+     // ======= CONFIG — change these =======
+    const CSV_URL = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3-Web/refs/heads/main/data/test_sample_220.csv"; // your CSV raw URL
+    const RAW_BASE = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3/refs/heads/main/"; // root for relative image_path, end with /
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzc4ywDjDy3L9XjpWUaPpDSebqWVgjv86fWGHqahndJPQfFYrjTRMXthhvZ9qHUk64WZw/exec";
+    // =====================================
+
+    const COLS = {
+      url: "image_path",
+      true_label: "true_label",
+      predicted_label: "predicted_label",
+      prob_NORMAL: "prob_NORMAL",
+      prob_PNEUMONIA: "prob_PNEUMONIA",
+      prob_TUBERCULOSIS: "prob_TUBERCULOSIS"
+    };
+
+    (function() {
+      const form = document.getElementById("task-form");
+      const container = document.getElementById("taskContainer");
+      const statusEl = document.getElementById("status");
+
+      // Guard for missing CSV_URL
+      if (!CSV_URL) { showError("CSV_URL not set."); return; }
+
+      Papa.parse(CSV_URL, {
+        download: true, header: true, skipEmptyLines: true,
+        complete: (results) => {
+          let rows = (results.data || []).filter(r => r[COLS.url]);
+          if (rows.length < 3) return showError("CSV has fewer than 3 rows with image_path.");
+
+          const picks = sampleWithoutReplacement(rows, 3).map(r => {
+            const path = String(r[COLS.url]).trim();
+            const url = path.startsWith("http") ? path : (RAW_BASE + path.replace(/^\/+/, ""));
+            const id = (path.split("/").pop() || "").replace(/[^a-zA-Z0-9_.-]/g, "_");
+            return {
+              id, url,
+              true_label: r[COLS.true_label] || "",
+              predicted_label: r[COLS.predicted_label] || "",
+              prob_NORMAL: r[COLS.prob_NORMAL] || "",
+              prob_PNEUMONIA: r[COLS.prob_PNEUMONIA] || "",
+              prob_TUBERCULOSIS: r[COLS.prob_TUBERCULOSIS] || ""
+            };
+          });
+
+          shuffle(picks);
+
+          document.getElementById("randomized_order_json").value =
+            JSON.stringify(picks.map((x, i) => ({ position: i+1, id: x.id, url: x.url })));
+
+          picks.forEach((img, idx) => {
+            setHidden(idx+1, "image_id", img.id);
+            setHidden(idx+1, "image_url", img.url);
+            setHidden(idx+1, "true_label", img.true_label);
+            setHidden(idx+1, "predicted_label", img.predicted_label);
+            setHidden(idx+1, "prob_NORMAL", img.prob_NORMAL);
+            setHidden(idx+1, "prob_PNEUMONIA", img.prob_PNEUMONIA);
+            setHidden(idx+1, "prob_TUBERCULOSIS", img.prob_TUBERCULOSIS);
+
+            const block = document.createElement("div");
+            block.className = "task-block";
+            const safeName = escapeName(img.id || ("pos"+(idx+1)));
+            block.innerHTML = `
+              <h3>Image ${idx + 1}</h3>
+              <div class="muted">X-ray ${idx + 1}</div>
+              <img class="task-image" src="${escapeHtml(img.url)}" alt="X-ray ${idx+1}" loading="lazy" />
+
+              <div class="field-group">
+                <label><strong>Diagnosis</strong></label>
+                <select name="diagnosis_${safeName}" required>
+                  <option value="">-- Select a diagnosis --</option>
+                  <option value="Normal (clear lungs, no visible infection)">Normal (clear lungs, no visible infection)</option>
+                  <option value="Pneumonia (Parts of the lungs look cloudy/hazy)">Pneumonia (Parts of the lungs look cloudy/hazy)</option>
+                  <option value="Tuberculosis (Small round spots (nodules) or holes (cavities))">Tuberculosis (Small round spots (nodules) or holes (cavities))</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <fieldset>
+                  <legend>Confidence</legend>
+                  <label class="radio-row"><input type="radio" name="confidence_${safeName}" value="1" required /> 1 - Not confident</label>
+                  <label class="radio-row"><input type="radio" name="confidence_${safeName}" value="2" /> 2 - Somewhat confident</label>
+                  <label class="radio-row"><input type="radio" name="confidence_${safeName}" value="3" /> 3 - Very confident</label>
+                </fieldset>
+              </div>
+
+              <div class="field-group">
+                <label><strong>Justification (optional)</strong></label>
+                <textarea name="justification_${safeName}" placeholder="e.g., cloudy opacity in left lung"></textarea>
+              </div>
+            `;
+            container.appendChild(block);
+          });
+        },
+        error: (err) => showError("Failed to fetch/parse CSV: " + err)
+      });
+
+      // Submit as URL-encoded to avoid CORS preflight issues with Apps Script
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (form.reportValidity && !form.reportValidity()) return;
+        statusEl.textContent = "Submitting…";
+        statusEl.className = "status";
+
+        const payload = Object.fromEntries(new FormData(form).entries());
+        payload.client_timestamp_iso = new Date().toISOString();
+
+        try {
+          const body = new URLSearchParams(payload).toString();
+          const res = await fetch(GAS_WEB_APP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body
+          });
+
+          let ok = false;
+          try {
+            const json = await res.json();
+            ok = json && json.ok;
+          } catch(_) {
+            // Response may not be readable due to CORS; still likely wrote to Sheet.
+            ok = res.ok;
+          }
+
+          if (ok) {
+            statusEl.textContent = "Thanks! Your responses were recorded.";
+            statusEl.className = "status ok";
+            form.reset();
+          } else {
+            statusEl.textContent = "Submit finished, but response not OK. Check the Sheet.";
+            statusEl.className = "status err";
+          }
+        } catch (err) {
+          statusEl.textContent = "Submit finished. If this shows as an error, check the Sheet. (" + err.message + ")";
+          statusEl.className = "status err";
+        }
+      });
+
+      // utils
+      function setHidden(pos, key, val){
+        const el = document.getElementById(`shown_${key}_${pos}`); if (el) el.value = val || "";
+      }
+      function shuffle(arr){ for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+      function sampleWithoutReplacement(arr, k){ const copy = arr.slice(); shuffle(copy); return copy.slice(0, k); }
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+      function escapeName(s){ return String(s).replace(/[^a-zA-Z0-9_.-]/g, '_'); }
+      function showError(msg){ const p = document.createElement('p'); p.className = 'status err'; p.textContent = msg; document.getElementById("taskContainer").appendChild(p); console.error(msg); }
+    })();
+  </script>
+</body>
+</html>
