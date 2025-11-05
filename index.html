@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chest X-ray Screening Task (3 Images)</title>
+  <title>Chest X-ray Screening (with AI Probabilities)</title>
 
-  <!-- CSV parser -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
@@ -40,6 +39,11 @@
     .status { font-size:14px; color:var(--muted); }
     .ok { color:#15803d; }
     .err { color:#b91c1c; }
+
+    /* tiny table for probs */
+    .probs { width:100%; border-collapse: collapse; margin: 8px 0 4px; }
+    .probs th, .probs td { text-align:left; padding:6px 8px; border:1px solid var(--border); font-size:13px; }
+    .probs th { background:#f3f4f6; }
   </style>
 </head>
 <body>
@@ -48,7 +52,7 @@
 
       <div class="card-section">
         <h1 class="title">Chest X-ray Screening: Identify Lung Conditions</h1>
-        <p class="subtitle">Review 3 images below. Label each, choose confidence, and (optionally) justify.</p>
+        <p class="subtitle">This version shows the AI’s predicted probabilities for each image.</p>
       </div>
 
       <div class="card-section illustrations">
@@ -84,6 +88,9 @@
               </div>
             </div>
           </div>
+
+          <!-- route this version to a different sheet/tab -->
+          <input type="hidden" name="target_sheet" value="Responses_AIProbs" />
 
           <!-- order + per-position metadata -->
           <input type="hidden" name="randomized_order_json" id="randomized_order_json" />
@@ -122,11 +129,11 @@
   </div>
 
   <script>
-     // ======= CONFIG — change these =======
-    const CSV_URL = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3-Web/refs/heads/main/data/test_sample_220.csv"; // your CSV raw URL
-    const RAW_BASE = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3/refs/heads/main/"; // root for relative image_path, end with /
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzc4ywDjDy3L9XjpWUaPpDSebqWVgjv86fWGHqahndJPQfFYrjTRMXthhvZ9qHUk64WZw/exec";
-    // =====================================
+    // ======= CONFIG — fill these =======
+    const CSV_URL = "https://raw.githubusercontent.com/<USER>/<REPO>/<BRANCH>/path/to/test_sample_220.csv";
+    const RAW_BASE = "https://raw.githubusercontent.com/<USER>/<REPO>/<BRANCH>/"; // trailing slash
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec";
+    // ===================================
 
     const COLS = {
       url: "image_path",
@@ -141,9 +148,6 @@
       const form = document.getElementById("task-form");
       const container = document.getElementById("taskContainer");
       const statusEl = document.getElementById("status");
-
-      // Guard for missing CSV_URL
-      if (!CSV_URL) { showError("CSV_URL not set."); return; }
 
       Papa.parse(CSV_URL, {
         download: true, header: true, skipEmptyLines: true,
@@ -187,6 +191,15 @@
               <div class="muted">X-ray ${idx + 1}</div>
               <img class="task-image" src="${escapeHtml(img.url)}" alt="X-ray ${idx+1}" loading="lazy" />
 
+              <table class="probs" aria-label="AI predicted probabilities">
+                <thead><tr><th>Model prob.</th><th>Value</th></tr></thead>
+                <tbody>
+                  <tr><td>Normal</td><td>${fmtPct(img.prob_NORMAL)}</td></tr>
+                  <tr><td>Pneumonia</td><td>${fmtPct(img.prob_PNEUMONIA)}</td></tr>
+                  <tr><td>Tuberculosis</td><td>${fmtPct(img.prob_TUBERCULOSIS)}</td></tr>
+                </tbody>
+              </table>
+
               <div class="field-group">
                 <label><strong>Diagnosis</strong></label>
                 <select name="diagnosis_${safeName}" required>
@@ -217,7 +230,7 @@
         error: (err) => showError("Failed to fetch/parse CSV: " + err)
       });
 
-      // Submit as URL-encoded to avoid CORS preflight issues with Apps Script
+      // Submit as URL-encoded (Apps Script-friendly)
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (form.reportValidity && !form.reportValidity()) return;
@@ -236,14 +249,7 @@
           });
 
           let ok = false;
-          try {
-            const json = await res.json();
-            ok = json && json.ok;
-          } catch(_) {
-            // Response may not be readable due to CORS; still likely wrote to Sheet.
-            ok = res.ok;
-          }
-
+          try { const json = await res.json(); ok = json && json.ok; } catch(_) { ok = res.ok; }
           if (ok) {
             statusEl.textContent = "Thanks! Your responses were recorded.";
             statusEl.className = "status ok";
@@ -259,14 +265,13 @@
       });
 
       // utils
-      function setHidden(pos, key, val){
-        const el = document.getElementById(`shown_${key}_${pos}`); if (el) el.value = val || "";
-      }
+      function setHidden(pos, key, val){ const el = document.getElementById(`shown_${key}_${pos}`); if (el) el.value = val || ""; }
       function shuffle(arr){ for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
       function sampleWithoutReplacement(arr, k){ const copy = arr.slice(); shuffle(copy); return copy.slice(0, k); }
       function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
       function escapeName(s){ return String(s).replace(/[^a-zA-Z0-9_.-]/g, '_'); }
       function showError(msg){ const p = document.createElement('p'); p.className = 'status err'; p.textContent = msg; document.getElementById("taskContainer").appendChild(p); console.error(msg); }
+      function fmtPct(v){ const n = Number(v); if (isNaN(n)) return String(v); return (n*100).toFixed(1) + '%'; }
     })();
   </script>
 </body>
