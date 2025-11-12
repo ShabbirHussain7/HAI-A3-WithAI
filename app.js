@@ -1,7 +1,7 @@
 // ======= CONFIG — fill these =======
 const CSV_URL = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3-Web/refs/heads/main/data/test_sample_220.csv"; // your CSV raw URL
 const RAW_BASE = "https://raw.githubusercontent.com/ShabbirHussain7/HAI-A3/refs/heads/main/"; // root for relative image_path, end with /
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz8zuQRm8Dai3D5XffzgReuP_xacC6y8AjnAGeEbrOyGWIisB91hUfPd3ZgR_AYX7R6kg/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwslZ4trl2KtsfkZ0-GifmFFccjPZ2Co-j8hBw1DOdJPdp3nV4w5Jms73dmzyYn3nf2AA/exec";
 // ===================================
 
 const COLS = {
